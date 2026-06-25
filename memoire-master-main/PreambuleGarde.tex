@@ -1,0 +1,84 @@
+\makeatletter
+\def\@directeur{encadrant universitaire}
+\newcommand{\directeur}[1]{\def\@directeur{#1}}
+
+\def\@encadrant{tuteur}
+\newcommand{\encadrant}[1]{\def\@encadrant{#1}}
+
+\def\@societe{société}
+\newcommand{\societe}[1]{\def\@societe{#1}}
+\makeatother
+
+\newcommand\BackgroundPic{%
+	\put(0,0){%
+		\parbox[b][\paperheight]{\paperwidth}{%
+			\includegraphics[height=0.32\paperheight]{pagedegarde/Bordure.png}%
+			\vfill
+		}
+	}
+}
+\newcommand\EtiquetteThese{%
+	\put(0,0){%
+		\parbox[t][\paperheight]{\paperwidth}{%
+			\hfill
+			\colorbox{blue}{		
+				\begin{minipage}[b]{3em}
+					\centering\Huge\textcolor{white}{M\\A\\S\\T\\E\\R\\}
+					\vspace{0.2cm}
+				\end{minipage}
+			}
+		}
+	}
+}
+
+\makeatletter
+\newcommand{\pagedegarde}{
+\newgeometry{top=2cm, bottom=2cm, left=1.6cm, right=1cm}
+\AddToShipoutPicture*{\BackgroundPic}
+\AddToShipoutPicture*{\EtiquetteThese}
+  \begin{titlepage}
+  \centering
+      \includegraphics[width=0.4\textwidth]{pagedegarde/paris8.png}
+      \hfill
+      \includegraphics[width=0.1\textwidth]{pagedegarde/logo.png}
+      \hfill
+      \includegraphics[width=0.1\textwidth]{pagedegarde/parag.png}\\
+    \vspace{1cm}
+    {\Huge \vspace{0.5cm} MÉMOIRE}\\
+    \vspace{0.8cm}
+    {\bfseries pour obtenir le grade de \iftoggle{M1}{Maîtrise (M1)}{Master} délivré par}\\
+    \vspace{1cm}
+    \huge\bfseries Université Paris 8 Vincennes à Saint Denis\\
+    \vspace{0.5cm}
+    \Large{\bfseries Mention \textit{Informatique} \iftoggle{M1}{}{\\\vspace{0.2cm}Parcours \textit{Big data et Fouille de données}}}\\
+    \vspace{1cm}
+    \normalsize
+    \textit{présenté et soutenu publiquement par}\\
+    \vspace{0.5cm}
+    {\Large {\bfseries \@author}} \\
+    \vspace{0.4cm}
+    	le \@date \\
+    \vfill
+       {\LARGE \color[rgb]{0,0,1} \bfseries{\@title}} \\
+    \vfill
+        Directeur de mémoire : {\bfseries \@directeur}\\
+        \bigskip
+%    \vfill
+        Maître \iftoggle{alternance}{d'apprentissage}{de stage} : {\bfseries \@encadrant}\\
+    \vfill
+        \iftoggle{alternance}{Alternance effectuée}{Stage effectué} à : {\bfseries \@societe}\\
+    \vfill
+
+	\textbf{COMUE Paris Lumières\\
+	Laboratoire d'Intelligence Artificielle et Science des Données}\\
+	Laboratoire Paragraphe
+  \end{titlepage}
+
+
+
+
+\restoregeometry  
+  
+  
+}
+\makeatother

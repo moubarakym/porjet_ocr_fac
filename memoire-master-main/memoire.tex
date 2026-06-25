@@ -1,0 +1,65 @@
+\documentclass[a4paper,12pt,twoside]{book}
+\input{Preambule}
+% indiquer ici si alternance ; sinon c'est un stage
+%\toggletrue{alternance}
+% si ce n'est pas un M1 c'est un master
+%\toggletrue{M1}
+\input{PreambuleGarde}
+
+% Infos de la page de garde
+\author{Prénom \scshape{Nom}}
+\title{Titre du mémoire}
+\directeur{Prénom \scshape {Nom}}
+\encadrant{Prénom \scshape{Nom}}
+\societe{{\scshape Nom de la société ou du laboratoire}\\
+son adresse}
+\date{\today} % remplacer \today par la date du jour de soutenance quand elle est connue
+
+\begin{document}
+
+% En-têtes et pieds-de-page
+\fancyhead{}
+\fancyhead[RO,LE]{\thepage}
+\fancyhead[RE]{\textit{\leftmark}}
+\fancyhead[LO]{\textit{\rightmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\fancyfoot{}
+\fancyfoot[LE]{\theauthor}
+\fancyfoot[RO]{2016}
+\fancyfoot[LO]{\scshape \thetitle}
+\fancyfoot[RE]{Université Paris 8 Vincennes}
+
+% Calculer les sommaires
+\dominitoc
+\doparttoc
+
+\pagedegarde
+\includefrom{}{Remerciements}
+\shorttableofcontents{Sommaire}{0}
+\includefrom{}{Resume}
+\includefrom{}{Abstract}
+
+\includefrom{Introduction/}{Introduction}
+
+\part{Problématique et état de l'art}
+\parttoc
+\includefrom{Chapitre1/}{Chapitre1}
+\includefrom{Chapitre2/}{Chapitre2}
+\includefrom{Chapitre3/}{Chapitre3}
+
+\part{Système réalisé}
+\parttoc
+\newpage
+\includefrom{Chapitre4/}{Chapitre4}
+\includefrom{Chapitre5/}{Chapitre5}
+
+\part*{} % pour minitoc
+\includefrom{Conclusion/}{Conclusion}
+\listoffigures
+\listoftables
+\tableofcontents
+\printbibliography
+
+%\includefrom{Annexes/}{Annexes}
+\end{document}

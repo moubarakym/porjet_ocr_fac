@@ -1,0 +1,177 @@
+% L'ordre compte
+
+% Global layout
+% Têtes de chapitre sans numéro de page
+\makeatletter
+\renewcommand\chapter{\if@openright\cleardoublepage\else\clearpage\fi
+  \thispagestyle{empty}%
+  \global\@topnum\z@
+  \@afterindentfalse
+  \secdef\@chapter\@schapter}
+% Paragraphes en retrait (digressions)
+\newenvironment{digression}[0]{
+	\list{}{\listparindent 1.5em%
+                        \small
+                        \itemindent    \listparindent%
+                        \rightmargin   \leftmargin%
+                        \labelsep 0.2em%
+                        \parsep        \z@ \@plus\p@}%
+              \item\relax%
+	}%
+	{
+	\endlist%
+	}
+\makeatother
+
+\raggedbottom% for not too separated items
+\usepackage{placeins}% for blocking figures
+
+% Layout
+
+\usepackage{fancyhdr}
+\setlength{\headheight}{30pt}% for fancyhdr
+\setlength{\parskip}{0.2\baselineskip}%
+\pagestyle{fancy}
+\usepackage{scrextend}% for footnotes
+\deffootnote{0em}{1.6em}{\thefootnotemark.\enskip}
+
+\usepackage{float}
+\counterwithin{figure}{section}
+\renewcommand{\thefigure}{\arabic{section}.\arabic{figure}}
+
+%\usepackage{subcaption}% for subfigure
+\usepackage{caption}
+\usepackage{subcaption}
+
+%\usepackage{chngcntr}
+%\counterwithin{figure}{section}
+%\counterwithout{figure}{chapter}
+
+
+% Section pas en majuscules dans le header
+\renewcommand{\sectionmark}[1]{\markright{\thesection\ #1}{}}
+
+% Pour avoir des chapitres hors des parties
+
+
+% Sections et figures sans numéro de chapitre
+\renewcommand{\thesection}{\arabic{section}}
+
+%\renewcommand{\thesubsection}{\thesection \arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection .\arabic{subsubsection}}
+%\renewcommand{\thefigure}{\thesection \arabic{figure}}
+
+% Paragraphes avec uniquement des lettres
+\renewcommand{\theparagraph}{\Alph{paragraph})}
+
+\usepackage{titling}% for author in footer
+\usepackage{emptypage}% for blank pages when clearing
+\usepackage{eso-pic}% pour la page de garde
+\usepackage{layout}% for visualizing the layout
+\usepackage{lscape}% pour avoir des pages en paysage
+\usepackage{pdflscape}% pour les afficher en paysage dans les lecteurs de pdf
+\usepackage[export]{adjustbox}
+\usepackage{chngpage}% pour adjustwidth
+\usepackage{rotating}% pour écrire verticalement (turn ou sideways)
+
+% Tables, figures and the like
+
+\usepackage{multirow}% row fusion
+\usepackage{multicol}% for text columns
+\usepackage{array}% for accessing columns
+\usepackage{float}
+\newcolumntype{M}[1]{>{\centering\arraybackslash}m{#1}} % centered text
+\renewcommand*{\arraystretch}{1.1}% add vertical space in tables
+\usepackage{tabularx, booktabs}
+\usepackage{colortbl}% for cellcolor
+\usepackage{longtable}% for table on many pages
+\usepackage{hhline}% for double horizontal lines
+\usepackage{diagbox}% for cutting a cell
+\usepackage[shortlabels]{enumitem}
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{placeins}% for blocking figures
+\usepackage{graphicx}% appelé par
+
+% Pour des tables dont certaines lignes sont de style différent avec tabular
+\newcolumntype{$}{>{\global\let\currentrowstyle\relax}}
+\newcolumntype{^}{>{\currentrowstyle}}
+\newcommand{\rowstyle}[1]{\gdef\currentrowstyle{#1}%
+  #1\ignorespaces
+}
+% à utiliser comme : \begin{tabular}{$l^c^r} \rowstyle{\bfseries}
+% Et pour le faire d'un coup avec de très nombreuses colonnes avec tabularx
+\newcolumntype{Y}{>{\currentrowstyle\centering\arraybackslash}X}
+
+% Special parts
+\usepackage[ruled, 	linesnumbered,	noend]{algorithm2e} 
+\usepackage{xurl}
+
+\usepackage[toc,page]{appendix}
+\usepackage{listings}
+
+\usepackage{fontspec}
+\usepackage{xunicode}
+
+\usepackage{mathtools, amssymb, amsthm}
+\DeclareMathOperator*{\argmax}{argmax} 
+\DeclareMathOperator*{\argmin}{arg\,min}
+\usepackage{xfrac}
+\usepackage[xetex, unicode, colorlinks=true]{hyperref}
+
+% Parties conditionnelles
+\usepackage{etoolbox} % pour toggle
+\newtoggle{alternance}
+\newtoggle{M1}
+
+\usepackage{tocbibind} % faire apparaître la biblio dans la table des matières
+\emergencystretch=1em % faire en sorte que la binlio ne deborde pas
+
+% AFTER hyperref
+\usepackage{bookmark}% fin de partie avant chapitres finaux
+
+% AFTER hyperref or wrong pdf size but BEFORE bidi
+\usepackage[xetex, a4paper]{geometry}
+% BEFORE bidi
+\usepackage[most]{tcolorbox}
+
+% AFTER CAPTION AND HYPERREF
+% You must ignore the errors at first stage, they will be corrected later
+\usepackage[francais]{minitoc}
+\setcounter{parttocdepth}{1}
+\setcounter{minitocdepth}{2}
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{3}
+
+% Sommaire de partie
+\usepackage{shorttoc}
+ 
+\usepackage{polyglossia}
+\setdefaultlanguage{french}
+\SetLanguageKeys{french}{indentfirst=false}
+%\setotherlanguage{arabic}
+%\newfontfamily\arabicfont[Script = Arabic]{Scheherazade}
+%\newfontfamily\ipa[Script = Latin]{CharisSIL}
+% le positionnement est bizarre ; avant polyglossia ne marche pas ici
+\usepackage{perpage}% pour avoir les notes renumérotées à chaque page
+\MakePerPage{footnote}
+
+\usepackage{setspace}% line spacing
+\usepackage[french=guillemets]{csquotes}
+\usepackage{lmodern}
+
+\usepackage[backend=biber, natbib, maxbibnames=20, citestyle=authoryear, hyperref=true, backref=true, giveninits=true]{biblatex}
+\addbibresource{memoire.bib} 
+
+% enable scschape in boldface
+\setmainfont{Latin Modern Roman}
+\fontspec[Scale=1.1]{LinLibertine_RB.otf}
+\DeclareFontShape{\UTFencname}{LatinModernRoman(0)}{b}{sc}{<->ssub *  LinLibertine_RB.otf(0)/m/sc}{}
+
+%\let\txar\textarabic% my macro
+
+\newcommand{\txar}[1]{\begingroup\large\textarabic{#1}\endgroup}
+\newcommand{\api}[1]{\begingroup\small\ipa #1\endgroup}
+
+\usepackage{import}% for includefrom
+
