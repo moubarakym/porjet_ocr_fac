@@ -5,8 +5,77 @@
 
 \section{Introduction}
 
-Ici on présente le système qu'on a réalisé ; c'est une sorte de documentation technique, mais elle doit mettre en valeur les choix faits par l'étudiant (par exemple, si vous avez tenté quelque chose et que ça n'a pas marché, et finalement vous avez fait autrement, vous devez présenter vos tentatives infructueuses, elles témoigneront de la qualité de votre expérience).
+Ce chapitre décrit le système réellement construit : son architecture générale, le rôle de chaque module, et les choix techniques qui en découlent. La dernière section est volontairement consacrée aux tentatives qui n'ont pas fonctionné du premier coup, car elles expliquent une partie importante des décisions finales.
 
-Il est essentiel de montrer un schéma général du système pour montrer comment il fonctionne, et un schéma pour chaque partie complexe du système.
+\section{Architecture générale}
+
+Le système est organisé en couches, chacune ayant une responsabilité précise :
+
+\begin{quote}
+\textit{Interface utilisateur (Streamlit, \texttt{app.py})} \\
+$\downarrow$ \\
+\textit{Logique métier (\texttt{ocr/extractor.py}, \texttt{comparator/compare.py})} \\
+$\downarrow$ \\
+\textit{Traitement d'image (\texttt{ocr/preprocess.py})} \\
+$\downarrow$ \\
+\textit{Données (fichier Excel, via pandas)}
+\end{quote}
+
+Cette séparation a un intérêt concret pour les tests : le module de traitement d'image peut être testé seul, avec des images générées en mémoire, sans avoir besoin de Tesseract ni de Streamlit ; de même, le module de comparaison peut être testé avec un simple DataFrame pandas, sans image du tout. C'est cette séparation qui a permis d'écrire les 41 tests automatisés présentés au chapitre~5 sans avoir à simuler l'application entière à chaque fois.
+
+\section{Prétraitement de l'image}
+
+Le module \texttt{ocr/preprocess.py} prend en entrée l'image brute et produit plusieurs versions prétraitées de cette image, plutôt qu'une seule. Ce choix vient d'un constat fait pendant le développement : aucune combinaison unique de redressement, de seuillage et de débruitage ne donne le meilleur résultat sur tous les types de dégradation (voir chapitre~3). Le système génère donc plusieurs « variantes » de l'image (par exemple : image seuillée simplement, image avec CLAHE et débruitage, image agrandie si elle est petite) et laisse l'étape suivante choisir la meilleure.
+
+Le redressement automatique (\textit{deskew}) mérite une mention particulière : il détecte l'angle d'inclinaison du texte via le rectangle englobant minimal d'OpenCV (\texttt{cv2.minAreaRect}), puis applique une rotation inverse pour corriger cette inclinaison. C'est ce composant qui a posé le plus de difficultés, comme expliqué en section~\ref{sec:tentatives}.
+
+\section{Extraction par OCR}
+
+Le module \texttt{ocr/extractor.py} appelle Tesseract sur chacune des variantes prétraitées de l'image, et avec plusieurs configurations de Tesseract (mode de segmentation de page différent selon que le document est plutôt une grille de champs ou un bloc de texte continu). Chaque appel renvoie un texte et un score de confiance moyen donné par Tesseract lui-même. Le système retient ensuite, pour chaque image, le résultat ayant la meilleure confiance (fonction \texttt{\_best\_ocr\_result}), plutôt que de se contenter du premier essai.
+
+Une fois le meilleur texte obtenu, des expressions régulières adaptées à chaque type de document (CNI, passeport, certificat de scolarité, et depuis l'extension décrite en section~\ref{sec:tentatives}, titre de séjour) en extraient les champs voulus. Pour le passeport, une tentative de lecture de la zone MRZ (la bande de caractères en bas du document, normalisée internationalement) est faite en priorité, avec un repli sur des expressions régulières classiques si la MRZ n'est pas lisible.
+
+\section{Comparaison avec la base de référence}
+
+Le module \texttt{comparator/compare.py} reçoit les champs extraits et cherche, dans le fichier Excel de référence, la ligne qui correspond le mieux. Cette recherche se fait par comparaison floue pondérée sur plusieurs champs à la fois (nom et prénom, avec un poids plus important sur le nom) plutôt que sur un seul champ : cela évite qu'une seule erreur d'OCR sur le prénom empêche de retrouver la bonne personne, tout en réduisant le risque de confondre deux personnes différentes portant le même nom de famille. Avant comparaison, les valeurs sont normalisées (minuscules, accents retirés, séparateurs de date uniformisés), pour que des différences purement typographiques ne soient pas comptées comme des erreurs.
+
+\section{Interface utilisateur}
+
+L'interface, construite avec Streamlit (\texttt{app.py}), permet de charger une image de document, de choisir son type, de visualiser l'image et le texte extrait, et d'afficher le résultat de la comparaison avec un code couleur à trois niveaux selon le score global (vert au-delà de 90\,\%, orange entre 70 et 90\,\%, rouge en dessous), ainsi qu'un statut par champ (identique, similaire, différent, non détecté). Un fichier Excel personnalisé peut être chargé à la place du fichier de référence par défaut, ce qui rend l'application utilisable avec une autre base de données sans modifier le code.
+
+\section{Conteneurisation}
+
+L'application est fournie avec un \texttt{Dockerfile} et un \texttt{docker-compose.yml}, qui installent Tesseract (avec le pack de langue français) et les dépendances Python nécessaires. L'objectif est de garantir que l'application fonctionne de façon identique quel que soit l'ordinateur sur lequel elle est lancée, sans dépendre de ce qui est déjà installé sur la machine.
+
+\section{Tentatives infructueuses et corrections}
+\label{sec:tentatives}
+
+Une fois l'application fonctionnelle de bout en bout, j'ai voulu vérifier objectivement à quel point la vérification était fiable. Cette démarche, détaillée au chapitre~5, a mis en évidence des défauts que la simple lecture du code n'avait pas révélés.
+
+\textbf{Premier défaut : Tesseract pouvait bloquer indéfiniment.} Sur une image très bruitée, l'appel à Tesseract pouvait prendre un temps anormalement long, voire ne jamais se terminer, ce qui gelait toute l'application. La correction a consisté à ajouter une limite de temps de 20 secondes sur chaque appel, avec une gestion propre du cas où cette limite est dépassée (le champ est alors simplement considéré comme non lu, plutôt que de faire planter le programme).
+
+\textbf{Deuxième défaut : une inclinaison corrigée dans le mauvais sens.} En relisant le code de redressement après avoir constaté de très mauvais résultats sur les documents légèrement tournés, j'ai découvert que la rotation de correction était appliquée dans le \emph{même} sens que l'inclinaison détectée, au lieu du sens inverse. Concrètement, au lieu de corriger l'inclinaison, le code la doublait. C'est un bug que les tests existants ne détectaient pas, car aucun test ne vérifiait que l'angle final était bien plus proche de zéro qu'au départ.
+
+\textbf{Troisième défaut : un changement de convention dans une bibliothèque externe.} Le code supposait que la fonction \texttt{cv2.minAreaRect} d'OpenCV renvoie toujours un angle entre $-90°$ et $0°$. Or, à partir d'une certaine version d'OpenCV (la version installée dans ce projet, 4.9), la convention a changé : l'angle est renvoyé entre $0°$ et $90°$. Avec l'ancienne hypothèse, certaines inclinaisons n'étaient simplement jamais détectées comme telles. Ce défaut illustre un risque classique en développement logiciel : une bibliothèque externe peut changer de comportement d'une version à l'autre sans que le code appelant soit prévenu autrement qu'en relisant la documentation ou en testant.
+
+Ces trois premiers défauts n'ont été découverts qu'en mesurant la précision de façon chiffrée et systématique, et non en relisant le code « à l'œil » : c'est une des principales leçons techniques de ce projet, développée au chapitre suivant.
+
+\subsection{Extension à un quatrième type de document et nouveaux défauts}
+
+Une fois ce premier travail de correction terminé, le système a été étendu à un quatrième type de document, le \textbf{titre de séjour}, jusque-là non supporté du tout : aucun parseur n'existait pour ce format, et une image de test soumise au système ne produisait aucun champ. Écrire ce nouveau parseur, puis le confronter à de vraies photographies de titre de séjour, de passeport et de carte nationale d'identité (et non plus seulement aux images synthétiques du banc d'essai du chapitre~5), a mis en évidence plusieurs défauts supplémentaires, plus subtils que les trois premiers car ils ne provoquaient ni plantage ni blocage : le système continuait de fonctionner, mais produisait silencieusement un champ vide ou une valeur fausse.
+
+\textbf{Quatrième défaut : l'ordre du texte ne respectait pas l'ordre visuel du document.} La fonction \texttt{image\_to\_string} de Tesseract, utilisée initialement pour récupérer le texte, restitue les lignes dans l'ordre où le moteur les a \emph{traitées} en interne, pas nécessairement dans l'ordre où elles apparaissent de haut en bas sur le document. Sur une mise en page chargée (photo de la personne, drapeau, motif de fond), un libellé pouvait ainsi se retrouver déplacé au milieu du texte final, rendant illisible tout repérage par position. La correction a consisté à ne plus utiliser \texttt{image\_to\_string}, mais à reconstruire le texte directement à partir des données de position que Tesseract fournit pour chaque mot (fonction \texttt{image\_to\_data}) : les mots sont regroupés par ligne, puis les lignes sont triées selon leur coordonnée verticale réelle sur l'image, ce qui restaure un ordre de lecture fidèle quelle que soit la façon dont Tesseract les a traitées en interne. Un effet secondaire utile de cette reconstruction est la possibilité de couper une ligne Tesseract en deux dès qu'un grand espace horizontal sépare deux mots, ce qui permet de séparer un libellé collé à la valeur du champ suivant sur la même ligne physique.
+
+\textbf{Cinquième défaut : les documents à fond de sécurité (guillochage) devenaient illisibles.} Certains titres de séjour impriment un motif décoratif dense en arrière-plan du texte, dans une teinte particulière. La conversion en niveaux de gris classique, qui moyenne les trois canaux de couleur, mélange ce motif au texte et dégrade fortement la reconnaissance. La correction consiste à générer, en plus des variantes de prétraitement déjà existantes, une variante par canal de couleur isolé (bleu, vert, rouge) : le texte, sombre sur les trois canaux, ressort alors nettement mieux dès que le fond est dominé par une couleur complémentaire à celle du canal choisi. Le système essaie ces variantes en plus des précédentes et combine les meilleures, plutôt que de se reposer sur une seule image prétraitée.
+
+\textbf{Sixième défaut : deux champs différents pouvaient récupérer la même valeur.} C'est le défaut le plus subtil rencontré dans cette phase. Sur la carte nationale d'identité, le nom et le prénom se retrouvaient parfois tous les deux affichés avec la même valeur (« Given names » au lieu du prénom réel). La cause n'était pas visible dans le code de comparaison floue lui-même, mais dans son mécanisme de repli : quand un libellé était repéré sur une ligne, la valeur correspondante était parfois cherchée sur une ligne \emph{suivante}, différente de celle du libellé. Le code ne retenait comme « déjà utilisée » que la ligne du libellé, pas celle où la valeur avait réellement été trouvée ; un second champ, dont le libellé se trouvait ailleurs mais dont la recherche de valeur aboutissait sur la même ligne suivante, pouvait donc récupérer cette même valeur sans que le système ne s'en aperçoive. La correction marque désormais les deux lignes (celle du libellé et celle de la valeur effectivement utilisée) comme indisponibles pour les champs suivants.
+
+\textbf{Septième défaut : un format de carte plus récent n'était pas reconnu.} Les cartes nationales d'identité au nouveau format (depuis 2021) regroupent plusieurs libellés bilingues sur une même ligne (« Sexe/Sex Nationalité/Nationality Date de naissance/Date of birth »), les valeurs correspondantes étant imprimées ensemble sur la ligne \emph{suivante} (« F FRA 01 04 1995 »), sans aucune ponctuation séparant les dates. Les expressions régulières existantes, qui supposaient une valeur immédiatement après son libellé, ne trouvaient donc rien sur ce format, et le mécanisme de repli par comparaison floue pouvait alors accrocher, par erreur, la fin d'un \emph{autre} libellé de la même ligne groupée comme s'il s'agissait d'une valeur. Deux corrections ont été apportées : une expression régulière dédiée reconnaît directement ce triplet de valeurs groupées (sexe, code pays, date), tolérante à un peu de bruit OCR entre les trois ; et le mécanisme de repli par comparaison floue vérifie désormais, avant d'accepter une valeur trouvée sur la même ligne que le libellé, qu'il ne s'agit pas simplement d'un fragment d'un autre libellé.
+
+\textbf{Huitième défaut : la lecture de la zone MRZ du passeport pouvait mélanger deux lectures indépendantes.} Le système combine, pour chaque document, le texte de plusieurs variantes prétraitées afin d'augmenter les chances de lire correctement chaque champ. Pour la zone MRZ du passeport (deux lignes de caractères normalisées), la première version du code cherchait ces deux lignes dans l'ensemble du texte combiné et retenait les deux derniers blocs trouvés, sans vérifier qu'ils provenaient bien de la \emph{même} lecture. Sur un document réel, cela pouvait associer la première ligne d'une variante de prétraitement à la seconde ligne d'une autre, produisant une paire incohérente. La correction découpe le texte combiné selon ses lectures d'origine, cherche la paire de lignes MRZ à l'intérieur de chaque lecture prise séparément, puis retient la paire dont la seconde ligne contient le plus de chiffres reconnus (cette ligne étant presque entièrement numérique, c'est un bon indicateur de fiabilité).
+
+Ces cinq derniers défauts n'ont pas été révélés par le banc d'essai chiffré du chapitre~5, qui ne couvre que les trois premiers types de documents sur des images synthétiques : ils ont été découverts par un test manuel systématique sur de vraies photographies, en comparant à chaque itération le texte brut réellement lu par Tesseract au résultat produit par les parseurs. Cette méthode reste moins rigoureuse qu'un banc d'essai chiffré et répétable, et constitue une limite reconnue de ce travail : le titre de séjour, ainsi que les corrections apportées à la CNI et au passeport, ne sont pour l'instant couverts ni par le banc d'essai du chapitre~5, ni par la suite de tests automatisés. Ce point est repris comme piste d'amélioration en conclusion.
 
 \section{Conclusion}
+
+Le système réalisé respecte l'architecture en couches prévue dès la conception, ce qui a facilité à la fois son évolution et son test. La section précédente montre toutefois qu'une architecture propre ne suffit pas à garantir un comportement correct : seule une mesure objective de la précision a permis de révéler des défauts qui seraient sans doute restés invisibles longtemps. Le chapitre suivant présente cette démarche de mesure en détail.

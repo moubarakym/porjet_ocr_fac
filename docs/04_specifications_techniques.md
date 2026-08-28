@@ -94,12 +94,21 @@ Le flux de donnees est unidirectionnel :
 
 Fichier `requirements.txt` :
 ```
-pytesseract==0.3.10
-opencv-python-headless==4.9.0.80
-Pillow==10.2.0
-pandas==2.2.0
-openpyxl==3.1.2
-rapidfuzz==3.6.1
-streamlit==1.31.0
-pytest==8.0.0
+pytesseract>=0.3.10
+opencv-python-headless>=4.9.0
+Pillow>=11.0.0
+pandas>=2.2.0
+openpyxl>=3.1.2
+rapidfuzz>=3.6.1
+streamlit>=1.31.0
+pytest>=8.0.0
 ```
+
+Note (aout 2026) : les bornes minimales (`>=`) sont volontaires, y compris pour
+opencv-python-headless. Le projet a d'abord ete teste avec OpenCV 4.9.0.80, dont
+`cv2.minAreaRect` renvoie l'angle dans une convention differente d'OpenCV 5.0 (voir
+memoire, chapitre 4, et docs/06_bilan_conformite.md) : plutot que de figer une version
+precise -- fragile, puisque la convention a deja change plusieurs fois -- le calcul
+d'angle dans `ocr/preprocess.py::_deskew` a ete rendu independant de la convention
+utilisee (normalisation modulo 90). Les 41 tests passent avec OpenCV 4.9 comme avec la
+5.0.

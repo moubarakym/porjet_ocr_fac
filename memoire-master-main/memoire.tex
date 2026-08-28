@@ -1,21 +1,38 @@
-\documentclass[a4paper,12pt,twoside]{book}
+% NOTE (Moussa) : option "openany" ajoutee pour eviter les pages blanches
+% forcees avant chaque chapitre/partie (comportement par defaut "openright"
+% de la classe book, pensee pour une impression recto-verso) : ce memoire
+% est destine a etre lu en PDF, les pages vierges n'ont donc pas d'utilite.
+\documentclass[a4paper,12pt,twoside,openany]{book}
 \input{Preambule}
 % indiquer ici si alternance ; sinon c'est un stage
 %\toggletrue{alternance}
-% si ce n'est pas un M1 c'est un master
-%\toggletrue{M1}
+% Ce mémoire correspond à un projet de première année (M1) : pas de parcours
+% de spécialité affiché sur la page de garde, conformément au choix du template.
+\toggletrue{M1}
 \input{PreambuleGarde}
 
 % Infos de la page de garde
-\author{Prénom \scshape{Nom}}
-\title{Titre du mémoire}
-\directeur{Prénom \scshape {Nom}}
-\encadrant{Prénom \scshape{Nom}}
-\societe{{\scshape Nom de la société ou du laboratoire}\\
-son adresse}
+\author{Moubarak~\scshape{YAHAYA MOUSSA}}
+\title{Extraction et vérification automatique de documents d'identité par OCR}
+% NOTE (Moussa) : nom de l'enseignant responsable du module DNF2ED12 pas encore
+% confirme au moment du depot -- a remplacer des que connu.
+\directeur{Nom \`a confirmer}
+% Pas de tuteur d'entreprise : il s'agit d'un projet académique et non d'un stage.
+% NOTE (Moussa) : nom de l'enseignant encadrant pas encore confirme au moment du
+% depot -- a remplacer des que connu.
+\encadrant{Nom \`a confirmer}
+\societe{{\scshape Université Paris 8 Vincennes -- Saint-Denis}\\
+Projet académique réalisé dans le cadre du module DNF2ED12 (Master 1, mention Informatique, parcours Big Data et Fouille de Données) -- 2 rue de la Liberté, 93526 Saint-Denis}
 \date{\today} % remplacer \today par la date du jour de soutenance quand elle est connue
 
 \begin{document}
+
+% NOTE (Moussa) : certains paquets (minitoc notamment, pour les sommaires de
+% partie) appellent \cleardoublepage directement, sans tenir compte de
+% l'option "openany" ci-dessus, ce qui laissait encore quelques pages
+% blanches. On force donc \cleardoublepage a se comporter comme \clearpage
+% partout dans le document (lecture en PDF, pas d'impression recto-verso).
+\let\cleardoublepage\clearpage
 
 % En-têtes et pieds-de-page
 \fancyhead{}
@@ -26,7 +43,7 @@ son adresse}
 
 \fancyfoot{}
 \fancyfoot[LE]{\theauthor}
-\fancyfoot[RO]{2016}
+\fancyfoot[RO]{\the\year}
 \fancyfoot[LO]{\scshape \thetitle}
 \fancyfoot[RE]{Université Paris 8 Vincennes}
 
@@ -42,24 +59,26 @@ son adresse}
 
 \includefrom{Introduction/}{Introduction}
 
+% NOTE (Moussa) : les sommaires de partie (\parttoc) et le \part*{} vide
+% ("pour minitoc") ont été retirés : chacun ajoutait une page blanche avant
+% le chapitre suivant (le sommaire principal en début de document suffit
+% pour naviguer dans le mémoire).
 \part{Problématique et état de l'art}
-\parttoc
 \includefrom{Chapitre1/}{Chapitre1}
 \includefrom{Chapitre2/}{Chapitre2}
 \includefrom{Chapitre3/}{Chapitre3}
 
 \part{Système réalisé}
-\parttoc
-\newpage
 \includefrom{Chapitre4/}{Chapitre4}
 \includefrom{Chapitre5/}{Chapitre5}
 
-\part*{} % pour minitoc
 \includefrom{Conclusion/}{Conclusion}
 \listoffigures
 \listoftables
 \tableofcontents
-\printbibliography
+% NOTE (Moussa) : bibliographie desactivee, voir Preambule.tex (biblatex/biber
+% non disponibles, et ce memoire ne s'appuie pas sur des citations).
+%\printbibliography
 
 %\includefrom{Annexes/}{Annexes}
 \end{document}

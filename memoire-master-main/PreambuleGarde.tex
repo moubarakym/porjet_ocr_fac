@@ -64,14 +64,13 @@
         Directeur de mémoire : {\bfseries \@directeur}\\
         \bigskip
 %    \vfill
-        Maître \iftoggle{alternance}{d'apprentissage}{de stage} : {\bfseries \@encadrant}\\
+        % NOTE (Moussa) : libelles adaptes a un projet academique (pas de
+        % stage ni d'alternance) ; le toggle "alternance" du template n'est
+        % donc pas utilise pour ces deux lignes.
+        Encadrant du projet : {\bfseries \@encadrant}\\
     \vfill
-        \iftoggle{alternance}{Alternance effectuée}{Stage effectué} à : {\bfseries \@societe}\\
+        Projet réalisé à : {\bfseries \@societe}\\
     \vfill
-
-	\textbf{COMUE Paris Lumières\\
-	Laboratoire d'Intelligence Artificielle et Science des Données}\\
-	Laboratoire Paragraphe
   \end{titlepage}
 
 

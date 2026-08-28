@@ -33,11 +33,12 @@ st.sidebar.header("Parametres")
 
 doc_type = st.sidebar.selectbox(
     "Type de document",
-    options=["cni", "passeport", "certificat"],
+    options=["cni", "passeport", "certificat", "titre_sejour"],
     format_func=lambda x: {
         "cni": "Carte Nationale d'Identite",
         "passeport": "Passeport",
         "certificat": "Certificat de Scolarite",
+        "titre_sejour": "Titre de Sejour",
     }[x],
 )
 

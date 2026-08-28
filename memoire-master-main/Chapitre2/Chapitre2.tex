@@ -2,40 +2,54 @@
 \chaptermark{Le problème}
 \minitoc
 \newpage
- 
+
 \section{Introduction}
 
-Une problématique c'est un objectif, des données et des difficultés à résoudre.
-L'objectif peut servir d'introduction.
-
-L'introduction à ce chapitre doit être l'objectif métier.
+Le besoin métier est simple à formuler : quand quelqu'un fournit un document d'identité (carte nationale d'identité, passeport, certificat de scolarité, ou titre de séjour), on veut savoir automatiquement si les informations qu'il contient correspondent à ce qui est attendu, sans qu'un humain ait à relire le document et à le comparer à la main.
 
 \section{Objectif}
 
-L'objectif qui doit être présenté ici est l'objectif technique; il faut caractériser cet objectif avec précision en terme d'entrées et de sorties et de catégorie (classification, prédiction, prévision de série temporelle, clustering...).
+L'objectif technique se décompose en deux tâches qui s'enchaînent.
+
+La première est une tâche d'\textbf{extraction d'information} : à partir d'une image (le document photographié ou scanné), produire en sortie un ensemble de champs structurés (nom, prénom, date de naissance, numéro de document, etc.), selon le type de document. L'entrée est donc une image, la sortie un dictionnaire de valeurs textuelles, certaines pouvant être manquantes si l'OCR n'a pas réussi à les lire.
+
+La seconde est une tâche de \textbf{comparaison} : à partir de ce dictionnaire de valeurs extraites et d'une base de référence (un fichier Excel contenant les informations attendues pour chaque personne), déterminer à quelle ligne de la base ce document correspond, puis indiquer, champ par champ, si la valeur extraite est identique, simplement proche (probable erreur d'OCR), ou clairement différente (incohérence à signaler).
 
 \section{Données}
 
-Les données doivent être présentées de la manière la plus détaillée possible (nombre de lignes, de colonnes, nombre de mots, nombre de documents...). La manière dont les données ont été construites est aussi à expliquer (saisie manuelle, capteurs, scraping...). Même si ce n'est pas vous qui les avez récoltées, vous êtes supposé connaître le processus de bout en bout. 
+Deux types de données interviennent dans ce projet.
 
-\section{Analyse des colonnes}
+D'une part, les \textbf{images de documents} : des photos ou scans de CNI, passeports, certificats de scolarité et titres de séjour. Ces documents ne sont jamais parfaits : éclairage inégal, légère rotation au moment de la prise de photo, flou de mise au point, papier abîmé. Le système doit donc être conçu pour rester utilisable même quand l'image n'est pas idéale.
 
-Les difficultés sont de 3 niveaux: d'abord, les difficultés liées aux données (valeurs manquantes, fautes, doublons...); ensuite, les difficultés liées à la réunion des données quand elles proviennent de plusieurs sources ; enfin, les difficultés nécessitant une ingénierie des caractéristiques.
+D'autre part, la \textbf{base de référence} : un fichier Excel listant, pour chaque personne, les valeurs attendues de chaque champ (nom, prénom, date de naissance...). Ce format a été choisi parce qu'il est universel et que n'importe quel utilisateur peut le modifier sans outil spécialisé ; l'application permet d'ailleurs de charger son propre fichier de référence plutôt que celui fourni par défaut.
 
-Premier niveau : faire une description des colonnes (une courbe serait idéale) par nombre de valeurs manquantes, de valeurs aberrantes, de valeurs uniques. Eventuellement, s'il y a des lignes en doublons, ou à valeurs manquantes, aussi.
+\section{Difficultés liées aux données}
 
-\section{Ingénierie des caractéristiques}
+Ici, les difficultés ne viennent pas de valeurs manquantes ou de doublons dans un tableau, comme c'est souvent le cas avec des données classiques. Elles viennent plutôt de deux choses : la \textbf{variabilité visuelle} des documents, et la \textbf{fiabilité de l'OCR}.
 
-Ici il faut indiquer les raisons de l'ingénierie des caractéristiques ; si certaines caractéristiques sont inutiles, ou sont redondantes, expliquer pourquoi, faire une étude de corrélation entre colonnes éventuellement. Au contraire, si des caractéristiques importantes manquent, expliquer pourquoi il faut les rajouter.
+Premièrement, le même champ peut apparaître sous des libellés très différents selon le document : « Nom », « Surname », « Nom / Surname », « Nom de famille »... Le système doit reconnaître ces libellés même mal orthographiés par l'OCR.
+
+Deuxièmement, l'OCR lui-même introduit du bruit : un caractère mal reconnu (un « 0 » à la place d'un « O », un accent absorbé), une ligne entière manquée si l'image est trop dégradée. La comparaison avec la référence doit donc tolérer ce type d'erreur sans pour autant valider n'importe quoi.
+
+Troisièmement, la qualité de l'image elle-même varie énormément selon comment et avec quoi le document a été photographié : une bonne partie du travail (détaillé au chapitre~4) consiste justement à rendre le pipeline robuste à cette variabilité.
+
+\section{Choix des champs à extraire}
+
+Dans un projet de données classique, on parlerait plutôt d'ingénierie des caractéristiques (choisir quelles colonnes garder, regarder les corrélations...). Ici, le travail est différent : pour chaque type de document, il faut choisir quels champs sont à la fois \textbf{utiles} pour vérifier l'identité, et \textbf{réalistement extractibles} par OCR. Par exemple, pour le certificat de scolarité, le numéro étudiant ou la formation suivie sont des champs intéressants mais peu standardisés d'un établissement à l'autre ; ils sont donc extraits de façon best-effort, sans bloquer la comparaison s'ils restent vides. À l'inverse, le nom, le prénom et la date de naissance sont quasiment toujours présents et bien positionnés sur le document : ce sont eux qui portent l'essentiel de la vérification.
 
 \section{Décomposition du problème}
 
-Avant de pouvoir résoudre le problème, il est souvent nécessaire de résoudre des sous-problèmes (par exemple, prétraitements divers, et évaluation).
+Le problème se décompose naturellement en une chaîne de quatre étapes, chacune pouvant être développée et testée séparément :
 
-Donc dans cette section on indique la séquence des étapes de résolution du problème qui précèdent et qui suivent le traitement.
+\begin{enumerate}
+  \item \textbf{Prétraitement de l'image} : préparer l'image pour qu'elle soit la plus lisible possible par l'OCR (redressement, contraste, débruitage).
+  \item \textbf{Reconnaissance optique de caractères (OCR)} : transformer l'image en texte brut.
+  \item \textbf{Analyse du texte (parsing)} : repérer dans ce texte brut les champs attendus, selon le type de document.
+  \item \textbf{Comparaison} : confronter les champs extraits à la base de référence et signaler les écarts.
+\end{enumerate}
 
-En aval, le problème le plus courant c'est l'évaluation: comment fera-t-on pour savoir quelle est la qualité de la solution que vous avez trouvée ? Avez-vous un moyen de contrôler?
- 
- Cette partie peut servir de conclusion, surtout si vous avez réalisé un schéma des étapes.
- 
+En aval de cette chaîne se pose la question de l'évaluation : comment savoir si le système fonctionne bien ? Il ne suffit pas de tester « à l'œil » sur deux ou trois images, car les progrès ou les régressions peuvent passer inaperçus. Cette question d'évaluation a pris une importance particulière dans ce projet : elle est traitée en détail au chapitre~5, où je construis un banc d'essai chiffré pour mesurer objectivement la précision du système et ses progrès.
+
 \section{Conclusion}
+
+Le problème à résoudre combine donc une difficulté technique (rendre l'OCR fiable sur des images imparfaites) et une difficulté de conception (décider quels champs extraire et comment tolérer les petites erreurs sans laisser passer les vraies incohérences). Le chapitre suivant présente les techniques existantes mobilisées pour y répondre.

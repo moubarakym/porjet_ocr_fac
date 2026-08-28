@@ -5,7 +5,57 @@ On teste les fonctions de parsing sur du texte simule
 """
 
 import pytest
-from ocr.extractor import parse_cni, parse_passeport, parse_certificat_scolarite
+from PIL import Image
+
+from ocr.extractor import (
+    parse_cni,
+    parse_passeport,
+    parse_certificat_scolarite,
+    _ocr_with_confidence,
+)
+
+
+class TestOcrTimeout:
+    """
+    Sur une image tres degradee (bruit important), Tesseract peut rester
+    bloque tres longtemps. pytesseract leve alors un RuntimeError simple
+    ("Tesseract process timeout") plutot qu'une exception dediee.
+    _ocr_with_confidence doit absorber ce cas (et les erreurs Tesseract
+    classiques) et renvoyer un resultat vide plutot que de laisser
+    l'exception remonter et bloquer tout le pipeline.
+    """
+
+    def test_timeout_renvoie_resultat_vide(self, monkeypatch):
+        import ocr.extractor as extractor_module
+
+        def fake_image_to_data(*args, **kwargs):
+            raise RuntimeError("Tesseract process timeout")
+
+        monkeypatch.setattr(
+            extractor_module.pytesseract, "image_to_data", fake_image_to_data
+        )
+
+        img = Image.new("L", (10, 10), color=255)
+        text, conf = _ocr_with_confidence(img, "fra+eng", "--oem 1 --psm 6")
+
+        assert text == ""
+        assert conf == -1.0
+
+    def test_erreur_tesseract_renvoie_resultat_vide(self, monkeypatch):
+        import ocr.extractor as extractor_module
+
+        def fake_image_to_data(*args, **kwargs):
+            raise extractor_module.pytesseract.TesseractError(1, "erreur simulee")
+
+        monkeypatch.setattr(
+            extractor_module.pytesseract, "image_to_data", fake_image_to_data
+        )
+
+        img = Image.new("L", (10, 10), color=255)
+        text, conf = _ocr_with_confidence(img, "fra+eng", "--oem 1 --psm 6")
+
+        assert text == ""
+        assert conf == -1.0
 
 
 class TestParseCNI:

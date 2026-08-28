@@ -1,3 +1,11 @@
 \chapter*{Abstract}
 \markboth{Abstract}{}
 \addstarredchapter{Abstract}
+
+This report presents a project carried out as part of the DNF2ED12 module (first-year Master's degree, Computer Science, Big Data and Data Mining track, Université Paris 8): an application that automatically extracts the information contained in identity documents (national ID card, passport, certificate of enrolment, residence permit) from a simple photograph, and then checks whether this information matches a reference database.
+
+The system relies on three steps: image preprocessing (deskewing, contrast enhancement, denoising), optical character recognition with the Tesseract engine, and fuzzy comparison against reference data (an Excel file) using the rapidfuzz library. A web interface built with Streamlit lets a user upload a document and view the results.
+
+Once the application was working end to end, dedicated work was carried out to improve the precision of the verification step, which was found to be insufficient. A benchmark was built from synthetic images degraded in seven different ways (rotation, blur, noise, low resolution, low contrast...), each with a known ground truth for every field. This benchmark made it possible to measure progress objectively, and more importantly revealed three hidden defects in the pipeline: a missing timeout on the OCR call (which could hang indefinitely on a very noisy image), a sign error in the image-deskewing correction (which doubled the tilt instead of correcting it), and a wrong assumption about the angle convention returned by an OpenCV function. Fixing these three defects raised the measured overall precision from 57.1\,\% to 79.1\,\% of correctly verified fields, a 22-point gain. A suite of 41 unit tests guards against regressions on these fixes. The system was later extended to a fourth document type (residence permit), which surfaced five further defects in the text-analysis logic (reading order, printed security background, field collision, an unrecognised recent ID card format, and mixed passport MRZ readings), validated on real documents but not yet covered by the numerical benchmark or the automated test suite.
+
+\textbf{Keywords:} OCR, Tesseract, image processing, identity document verification, fuzzy matching, benchmark, unit testing.

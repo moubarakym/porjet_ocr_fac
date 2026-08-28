@@ -104,7 +104,12 @@
 \newcolumntype{Y}{>{\currentrowstyle\centering\arraybackslash}X}
 
 % Special parts
-\usepackage[ruled, 	linesnumbered,	noend]{algorithm2e} 
+% NOTE (Moussa) : le paquet algorithm2e n'est pas installe dans l'environnement
+% de compilation utilise pour ce projet, et aucun algorithme au sens LaTeX
+% (environnement algorithm2e) n'est utilise dans ce memoire ; le chargement du
+% paquet est donc desactive plutot que de bloquer la compilation. Si besoin de
+% decrire un algorithme, le package peut etre reactive apres installation.
+%\usepackage[ruled, 	linesnumbered,	noend]{algorithm2e}
 \usepackage{xurl}
 
 \usepackage[toc,page]{appendix}
@@ -160,13 +165,24 @@
 \usepackage[french=guillemets]{csquotes}
 \usepackage{lmodern}
 
-\usepackage[backend=biber, natbib, maxbibnames=20, citestyle=authoryear, hyperref=true, backref=true, giveninits=true]{biblatex}
-\addbibresource{memoire.bib} 
+% NOTE (Moussa) : le paquet biblatex (et son backend biber) n'est pas installe
+% dans l'environnement de compilation utilise pour ce projet. Ce memoire ne
+% s'appuie pas sur des citations bibliographiques (voir chapitre 3 : les
+% techniques sont decrites sans citer d'articles academiques specifiques),
+% donc la bibliographie est desactivee plutot que de bloquer la compilation.
+%\usepackage[backend=biber, natbib, maxbibnames=20, citestyle=authoryear, hyperref=true, backref=true, giveninits=true]{biblatex}
+%\addbibresource{memoire.bib}
 
 % enable scschape in boldface
+% NOTE (Moussa) : la police LinLibertine_RB.otf (utilisee ici comme substitut
+% pour le petites-capitales-gras, absent de Latin Modern Roman) n'est pas
+% installee dans l'environnement de compilation utilise pour ce projet ; ces
+% deux lignes sont donc desactivees pour eviter une erreur de compilation
+% (consequence mineure : le gras+petites capitales utilise un rendu par
+% defaut au lieu du rendu personnalise prevu par le template).
 \setmainfont{Latin Modern Roman}
-\fontspec[Scale=1.1]{LinLibertine_RB.otf}
-\DeclareFontShape{\UTFencname}{LatinModernRoman(0)}{b}{sc}{<->ssub *  LinLibertine_RB.otf(0)/m/sc}{}
+%\fontspec[Scale=1.1]{LinLibertine_RB.otf}
+%\DeclareFontShape{\UTFencname}{LatinModernRoman(0)}{b}{sc}{<->ssub *  LinLibertine_RB.otf(0)/m/sc}{}
 
 %\let\txar\textarabic% my macro
 
@@ -174,4 +190,3 @@
 \newcommand{\api}[1]{\begingroup\small\ipa #1\endgroup}
 
 \usepackage{import}% for includefrom
-

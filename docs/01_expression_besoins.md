@@ -18,6 +18,7 @@ L'objectif de ce projet est de developper une application capable d'automatiser 
 - Carte Nationale d'Identite (CNI)
 - Passeport (avec lecture de la zone MRZ)
 - Certificat de Scolarite
+- Titre de Sejour (ajoute en extension, voir docs/06_bilan_conformite.md)
 
 ## Contraintes techniques
 

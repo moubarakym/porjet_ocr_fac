@@ -16,11 +16,11 @@
 
 ### US-2 : Selection du type de document
 **En tant qu'** utilisateur,
-**je veux** pouvoir choisir le type de document (CNI, Passeport, Certificat),
+**je veux** pouvoir choisir le type de document (CNI, Passeport, Certificat, Titre de sejour),
 **afin que** le systeme utilise le bon parseur pour extraire les champs.
 
 **Criteres d'acceptation :**
-- Liste deroulante avec 3 choix
+- Liste deroulante avec 4 choix
 - Le parseur adapte est utilise selon la selection
 
 ---
@@ -85,6 +85,7 @@
 | Parsing CNI (regex) | Haute | Implemente |
 | Parsing Passeport (MRZ + fallback) | Haute | Implemente |
 | Parsing Certificat de scolarite | Haute | Implemente |
+| Parsing Titre de sejour (extension) | Moyenne | Implemente |
 | Comparaison avec Excel | Haute | Implemente |
 | Detection des incoherences | Haute | Implemente |
 | Interface Streamlit | Haute | Implemente |

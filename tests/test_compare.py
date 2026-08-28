@@ -26,6 +26,21 @@ class TestNormalize:
     def test_nombre(self):
         assert normalize(123) == "123"
 
+    def test_accents(self):
+        # L'OCR confond souvent les accents ; la reference peut etre saisie
+        # avec ou sans accent. Les deux doivent etre consideres identiques.
+        assert normalize("Hélène") == normalize("Helene")
+        assert normalize("François") == "francois"
+
+    def test_separateurs_date_uniformises(self):
+        # Un OCR peut lire un point ou un tiret a la place du slash dans une
+        # date ; cela ne doit pas etre traite comme une difference de valeur.
+        assert normalize("15.03.1990") == normalize("15/03/1990")
+        assert normalize("15-03-1990") == normalize("15/03/1990")
+
+    def test_accents_et_dates_combines(self):
+        assert normalize("  NÉE LE 15.03.1990  ") == normalize("nee le 15/03/1990")
+
 
 class TestCompareFields:
     def test_champs_identiques(self):
@@ -81,6 +96,28 @@ class TestFindMatchingRecord:
         idx, record = find_matching_record(extracted, self.df)
         assert idx is None
 
+    def test_disambiguation_par_prenom(self):
+        # Deux personnes partagent le meme nom de famille : le seul champ
+        # "nom" ne suffit pas a les distinguer. Le prenom (poids plus faible
+        # mais pris en compte) doit permettre de selectionner le bon
+        # enregistrement plutot que le premier "DUPONT" trouve.
+        df = pd.DataFrame([
+            {"nom": "DUPONT", "prenom": "Jean"},
+            {"nom": "DUPONT", "prenom": "Marie"},
+        ])
+        extracted = {"nom": "DUPONT", "prenom": "Marie"}
+        idx, record = find_matching_record(extracted, df)
+        assert idx == 1
+        assert record["prenom"] == "Marie"
+
+    def test_match_robuste_a_une_erreur_ocr_sur_un_seul_champ(self):
+        # Le prenom est lu correctement mais le nom contient une erreur OCR
+        # legere (chiffre 0 a la place de la lettre O) : la combinaison
+        # ponderee doit quand meme retrouver le bon enregistrement.
+        extracted = {"nom": "DUP0NT", "prenom": "Jean"}
+        idx, record = find_matching_record(extracted, self.df)
+        assert idx == 0
+
 
 class TestCompareDocument:
     def setup_method(self):
@@ -107,6 +144,7 @@ class TestCompareDocument:
             "date_naissance": "15/03/1990",
             "numero": "ABC123456",
             "sexe": "M",
+            "nationalite": "FRA",
         }
         result = compare_document(extracted, self.test_excel)
         assert result["match_found"] is True

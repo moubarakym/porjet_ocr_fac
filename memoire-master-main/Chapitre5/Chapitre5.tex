@@ -5,8 +5,100 @@
 
 \section{Introduction}
 
-Ici on montre ce que produit le système réalisé; une sorte de documentation utilisateur, mais qui montre les différents tests faits et les résultats de ces tests. 
+Ce chapitre présente la démarche de validation du système : d'abord les tests automatisés qui garantissent que chaque fonction se comporte comme prévu, puis le banc d'essai (benchmark) construit spécifiquement pour mesurer, de façon chiffrée, la précision de la vérification et les progrès apportés par les corrections décrites au chapitre~4.
 
-On a besoin d'un benchmark, qui montre les progrès réalisés par rapport à d'autres solutions et permet d'évaluer la solution adoptée.
+\section{Tests automatisés}
+
+Le projet est couvert par une suite de 41 tests automatisés (\texttt{pytest}), répartis en tests unitaires (chaque fonction testée isolément, avec des données simulées) et tests d'intégration (le pipeline complet, avec un vrai fichier Excel). Le tableau~\ref{tab:tests} résume cette couverture par grande catégorie.
+
+\begin{table}[H]
+\centering
+\caption{Répartition des tests automatisés}
+\label{tab:tests}
+\begin{tabular}{lccc}
+\toprule
+Catégorie de tests & Nombre & Réussis & Taux \\
+\midrule
+Extraction (parsing CNI, passeport, certificat) & 14 & 14 & 100\,\% \\
+Comparaison (normalisation, matching flou) & 16 & 16 & 100\,\% \\
+OCR (gestion du timeout et des erreurs) & 2 & 2 & 100\,\% \\
+Prétraitement d'image (redressement, redimensionnement) & 6 & 6 & 100\,\% \\
+Intégration (pipeline complet) & 3 & 3 & 100\,\% \\
+\midrule
+\textbf{Total} & \textbf{41} & \textbf{41} & \textbf{100\,\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Ces tests jouent un rôle de filet de sécurité : à chaque modification du code, ils permettent de vérifier en quelques secondes qu'aucune fonctionnalité déjà acquise n'a été cassée. C'est notamment grâce à des tests dédiés sur le redressement d'image (vérifiant qu'une inclinaison positive \emph{et} une inclinaison négative sont toutes les deux correctement corrigées) que le deuxième bug décrit au chapitre~4 a pu être corrigé avec confiance, sans craindre de régression.
+
+\section{Banc d'essai de précision}
+
+Les tests automatisés vérifient que chaque fonction fait ce qu'elle est censée faire, mais ils ne disent rien de la précision globale du système face à des documents réalistes. C'est pour répondre à cette question qu'un banc d'essai dédié a été construit.
+
+\subsection{Méthodologie}
+
+Trois documents synthétiques (deux CNI, un certificat de scolarité), dont tous les champs sont connus à l'avance, ont été générés puis dégradés selon sept profils différents : image propre (\texttt{clean}), rotation de 8° (\texttt{rotated}), flou gaussien (\texttt{blur}), bruit gaussien fort (\texttt{noise}), perte de résolution suivie d'un agrandissement (\texttt{lowres}), contraste réduit (\texttt{low\_contrast}), et cumul de plusieurs dégradations à la fois (\texttt{combined}). Cela donne 21 images de test, et 91 champs à vérifier au total (puisque chaque document comporte plusieurs champs).
+
+Chaque champ extrait par le système est comparé à sa valeur attendue à l'aide d'un score de similarité flou (seuil de 85\,\%), ce qui tolère les différences mineures de casse ou de ponctuation sans masquer les vraies erreurs de lecture.
+
+La version « avant » correspond au pipeline initial (prétraitement simple, une seule configuration d'OCR, comparaison basique). La version « après » intègre l'ensemble des améliorations présentées au chapitre~4 : prétraitement multi-variantes avec redressement corrigé, OCR multi-configurations avec score de confiance et délai maximal, comparaison pondérée insensible aux accents.
+
+\subsection{Résultats globaux}
+
+\begin{table}[H]
+\centering
+\caption{Précision globale avant/après les corrections}
+\label{tab:resultats-globaux}
+\begin{tabular}{lcc}
+\toprule
+Version & Champs corrects & Précision globale \\
+\midrule
+Avant & 52 / 91 & 57,1\,\% \\
+Après & 72 / 91 & \textbf{79,1\,\%} \\
+\midrule
+\textbf{Gain} & & \textbf{+22,0 points} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Résultats détaillés par type de dégradation}
+
+\begin{table}[H]
+\centering
+\caption{Précision par type de dégradation, avant et après corrections}
+\label{tab:resultats-degradation}
+\begin{tabular}{lcc}
+\toprule
+Dégradation & Avant & Après \\
+\midrule
+Aucune (\texttt{clean}) & 84,6\,\% & 84,6\,\% \\
+Rotation 8° (\texttt{rotated}) & 23,1\,\% & 69,2\,\% \\
+Flou (\texttt{blur}) & 84,6\,\% & 84,6\,\% \\
+Bruit fort (\texttt{noise}) & 0,0\,\% & 84,6\,\% \\
+Basse résolution (\texttt{lowres}) & 84,6\,\% & 76,9\,\% \\
+Contraste faible (\texttt{low\_contrast}) & 84,6\,\% & 84,6\,\% \\
+Cumul (\texttt{combined}) & 38,5\,\% & 69,2\,\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Analyse}
+
+Trois résultats méritent d'être commentés.
+
+Le cas \texttt{noise} montre le gain le plus spectaculaire : 0\,\% avant, 84,6\,\% après. Sans pretraitement adapté, l'OCR ne reconnaissait quasiment aucun champ sur les images bruitées ; c'est d'ailleurs ce cas qui a permis de découvrir le premier bug (blocage de Tesseract sans limite de temps, décrit au chapitre~4), car le pipeline restait bloqué dessus avant correction.
+
+Les cas \texttt{rotated} et \texttt{combined} montrent également une forte amélioration (respectivement 23,1\,\% $\to$ 69,2\,\% et 38,5\,\% $\to$ 69,2\,\%), directement liée à la correction des deux bugs de redressement d'image décrits au chapitre~4 (inversion du sens de rotation et mauvaise hypothèse sur la convention d'angle d'OpenCV).
+
+Le cas \texttt{lowres} montre en revanche un léger recul (84,6\,\% $\to$ 76,9\,\%, soit un champ sur treize en moins) : il s'agit d'un effet de bord d'un des changements de prétraitement, qui dans ce cas précis ne suffit pas à récupérer un détail déjà détruit par la sous-résolution. C'est une limite connue du système, discutée en conclusion.
+
+Les cas \texttt{clean}, \texttt{blur} et \texttt{low\_contrast} restent stables : les corrections apportées n'ont donc pas dégradé les cas qui fonctionnaient déjà bien, ce qui est important à vérifier (une amélioration ciblée peut parfois introduire des régressions ailleurs).
+
+\section{Limite de couverture : le quatrième type de document}
+
+Le banc d'essai décrit dans ce chapitre, ainsi que les 41 tests automatisés du tableau~\ref{tab:tests}, ont été construits avant l'ajout du titre de séjour comme quatrième type de document (voir chapitre~4). Ni l'un ni l'autre ne couvrent donc ce type de document, ni les cinq défauts d'analyse textuelle corrigés à cette occasion (ordre de lecture du texte, fond de sécurité imprimé, collision entre champs, format récent de carte d'identité, lecture de zone MRZ du passeport). Leur validation s'est faite de façon manuelle, en comparant à chaque itération le texte brut lu par Tesseract sur de vraies photographies au résultat produit par les parseurs, plutôt que par une mesure chiffrée et répétable comme celle présentée plus haut. C'est une limite assumée de ce travail plutôt qu'un oubli : étendre le jeu de données synthétique à un titre de séjour et écrire des tests de régression dédiés à ces cinq défauts serait la suite logique, pour retrouver le même niveau de garantie que sur les trois premiers types de documents.
 
 \section{Conclusion}
+
+La combinaison de tests automatisés (qui garantissent qu'aucune fonction ne régresse) et d'un banc d'essai chiffré (qui mesure la précision globale sur des cas réalistes) a permis non seulement de valider le système, mais surtout de \emph{découvrir} des défauts invisibles à la simple lecture du code, et de mesurer précisément l'effet de leur correction : +22 points de précision globale, avec un gain particulièrement marqué sur les images bruitées et les documents légèrement tournés. L'extension à un quatrième type de document, réalisée après ce banc d'essai, a montré que la même vigilance restait nécessaire même sans mesure chiffrée disponible, au prix d'une méthode de validation moins rigoureuse (section précédente). Le chapitre suivant tire le bilan de l'ensemble du projet et en discute les limites.

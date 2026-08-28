@@ -1,26 +1,39 @@
-\chapter{Titre provisoire : Techniques}
+\chapter{Techniques existantes pour l'extraction et la vérification de documents}
 \chaptermark{Techniques}
 \minitoc
 \newpage
- 
+
 \section{Introduction}
 
-L'état de l'art est une passage en revue des techniques informatiques qui permettent de résoudre le type de problème traité ici. Le titre du chapitre doit refléter le problème particulier, exemple État de l'art de la prévision de jalons.
+Ce chapitre présente, de façon simple, les familles de techniques disponibles pour résoudre les deux sous-problèmes identifiés au chapitre précédent : reconnaître automatiquement le texte d'une image (OCR), et comparer deux valeurs textuelles qui peuvent légèrement différer (comparaison floue). L'objectif n'est pas de faire une revue exhaustive de la recherche académique récente sur l'OCR, mais de situer les choix techniques du projet (présentés au chapitre~4) parmi les solutions existantes, et d'expliquer pourquoi certaines ont été retenues plutôt que d'autres.
 
-\section{Travaux connexes}
+\section{Solutions existantes pour l'OCR}
 
-Ici vous expliquez les articles récents qui traitent du même problème que vous ou de problèmes très proches. Avoir 4 ou 5 articles pour parler de ça est un minimum.
+Il existe globalement deux grandes familles de solutions pour la reconnaissance optique de caractères.
 
-Et voici un exemple de citation, où \citet{Arnab2021} présente les transformers pour la vision par ordinateur. 
+La première famille regroupe les \textbf{API cloud payantes} : Google Cloud Vision, AWS Textract, Microsoft Azure Document Intelligence. Ces services atteignent en général une très bonne précision, en particulier sur des documents complexes ou de mauvaise qualité, car ils reposent sur des modèles de deep learning entraînés sur des volumes de données considérables. Leur inconvénient principal est qu'ils sont payants à l'usage et nécessitent d'envoyer les documents (potentiellement sensibles, puisqu'il s'agit ici de pièces d'identité) vers un serveur externe.
 
-Une autre façon de citer \citep{Arnab2021}, où la citation est entre parenthèses.
+La seconde famille regroupe les \textbf{moteurs OCR open source}, dont le plus utilisé est Tesseract. Il a d'abord été développé par Hewlett-Packard dans les années 1980, puis repris et maintenu par Google depuis le milieu des années 2000. Il est gratuit, fonctionne hors ligne, et reconnaît plus d'une centaine de langues, dont le français. Depuis sa version 4, il utilise un réseau de neurones de type LSTM (\textit{Long Short-Term Memory}) pour reconnaître les caractères, ce qui le rend beaucoup plus performant que ses anciennes versions, qui reposaient seulement sur des règles de forme. Sa limite principale reste qu'il est moins précis que les solutions cloud sur des documents très dégradés ou avec une mise en page complexe.
 
-\section{Algorithmes}
+Pour ce projet, le choix s'est porté sur Tesseract : la gratuité et le fonctionnement hors ligne sont des critères importants pour un projet académique sans budget, et le fait de traiter des données sensibles (informations d'identité) rend également préférable de ne pas les envoyer à un service tiers.
 
-C'est ici qu'on pourra mettre plusieurs sections, par exemple une section sur les algorithmes de prétraitement, une section sur les algorithmes de traitement, et même une section sur les évaluations. On ne met ces sections dans l'état de l'art que s'il y a plusieurs solutions possibles. Si un prétraitement est fait de la même manière pour tout le monde, on n'en parle que dans la problématique.
+\section{Prétraitement d'image}
 
-Ici on décrit les algorithmes qui sont utilisables pour ce problème, même s'ils n'ont pas été utilisés.
+Quel que soit le moteur OCR utilisé, sa performance dépend fortement de la qualité de l'image fournie en entrée. Plusieurs techniques classiques de traitement d'image, disponibles dans des bibliothèques comme OpenCV, permettent d'améliorer cette qualité avant l'OCR~:
+
+\begin{itemize}
+  \item le \textbf{redressement (deskew)} : si le document est légèrement tourné par rapport à l'horizontale (cas fréquent pour une photo prise à la main), les lignes de texte ne sont plus horizontales, ce qui dégrade fortement la reconnaissance. La technique usuelle consiste à détecter l'orientation du contenu (par exemple via le rectangle englobant de surface minimale autour des pixels sombres, fonction \texttt{minAreaRect} d'OpenCV) puis à appliquer une rotation inverse pour redresser l'image ;
+  \item le \textbf{seuillage} (binarisation) : transformer l'image en noir et blanc pur, soit avec un seuil global calculé automatiquement (méthode d'Otsu), soit avec un seuil adaptatif qui varie localement (utile si l'éclairage n'est pas uniforme sur le document) ;
+  \item l'\textbf{amélioration du contraste local}, par exemple la méthode CLAHE (\textit{Contrast Limited Adaptive Histogram Equalization}), utile sur des photos avec des zones d'ombre ;
+  \item le \textbf{débruitage}, qui atténue le grain ou le bruit numérique d'une photo prise dans de mauvaises conditions de lumière.
+\end{itemize}
+
+Aucune de ces techniques ne fonctionne universellement mieux que les autres sur tous les documents : un seuillage adaptatif peut très bien marcher sur une photo avec ombres et donner un résultat dégradé sur un scan déjà propre, et inversement. C'est cette observation qui a motivé, dans la réalisation du projet (chapitre~4), le choix de générer plusieurs variantes prétraitées d'une même image plutôt qu'une seule.
+
+\section{Comparaison approximative de chaînes de caractères}
+
+Une fois le texte extrait, il faut le comparer à une valeur de référence en tolérant les petites erreurs introduites par l'OCR (un caractère mal reconnu, un espace en trop). C'est le rôle du \textbf{fuzzy matching} (comparaison floue). La mesure la plus connue est la \textbf{distance de Levenshtein}, qui compte le nombre minimal d'opérations (insertion, suppression, substitution d'un caractère) nécessaires pour transformer une chaîne en une autre ; un score de similarité est ensuite dérivé de cette distance, généralement normalisé entre 0 et 100. Des bibliothèques comme \texttt{rapidfuzz} (utilisée dans ce projet) ou \texttt{fuzzywuzzy} implémentent cette distance ainsi que des variantes (comparaison par sous-chaînes, par ensembles de mots) de façon optimisée.
 
 \section{Conclusion}
 
-Pour conclure on indique quels sont les algorithmes qu'on va tester et ceux qu'on ne va pas tester et pourquoi.
+Parmi les solutions existantes, ce projet retient donc : Tesseract pour l'OCR (par préférence pour une solution open source, gratuite et fonctionnant hors ligne sur des données sensibles), les techniques classiques de traitement d'image d'OpenCV pour le prétraitement (en utilisant plusieurs variantes en parallèle plutôt qu'une seule, faute de solution universelle), et la distance de Levenshtein via rapidfuzz pour la comparaison floue. Le chapitre suivant détaille comment ces briques ont été assemblées et adaptées concrètement dans le système réalisé.

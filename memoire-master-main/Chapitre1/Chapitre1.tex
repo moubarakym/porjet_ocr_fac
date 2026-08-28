@@ -1,23 +1,24 @@
-\chapter{Titre provisoire : contexte de résolution du problème}
+\chapter{Contexte du projet}
 \chaptermark{Contexte}
 \minitoc
 \newpage
- 
+
 \section{Introduction}
 
-Commencer par présenter votre mission dans ses grandes lignes (un paragraphe).
- 
-\subsection{Entreprise}
+Ce projet a été réalisé dans le cadre du module DNF2ED12, en première année de Master Informatique, parcours Big Data et Fouille de Données, à l'Université Paris 8. Contrairement à un stage en entreprise, il s'agit d'un projet académique : il n'y a pas d'entreprise d'accueil, mais un sujet donné par l'équipe enseignante, à réaliser de façon autonome sur la durée du module. La mission consiste à concevoir une petite application capable de lire automatiquement les informations d'un document d'identité numérisé (photo ou scan) et de vérifier qu'elles correspondent à des données déjà connues, en remplacement d'une vérification manuelle.
 
-Présenter ici votre entreprise (ou laboratoire) ; présentation rapide de son activité ; l'historique n'est pas nécessaire.
+\subsection{Cadre académique}
 
-\subsection{Contexte RH}
+Le module DNF2ED12 demande de mener un projet informatique complet, depuis l'expression des besoins jusqu'à une application fonctionnelle et documentée. On suit une démarche proche de celle utilisée en entreprise : on récolte les besoins, on fait des choix techniques qu'on justifie, on teste, puis on vérifie à la fin que tout ce qui était demandé a bien été fait. C'est cette même logique que je reprends dans ce mémoire, en l'expliquant simplement.
 
-Présenter ici le service où vous travaillez, combien de personnes travaillent avec vous, avec quels rôles, la répartition du travail entre vous, le manager, le maître.
-Indiquez, s'il y en a, les contraintes particulières posées par le service (utilisation d'un cloud AWS par exemple).
+\subsection{Organisation du travail}
+
+Le projet a été mené individuellement, sans répartition de tâches entre plusieurs personnes. Cela a un avantage et un inconvénient : l'avantage est qu'il n'y a pas de coordination à gérer, ce qui a permis d'avancer rapidement sur les choix techniques ; l'inconvénient est l'absence de relecture extérieure pendant le développement, ce qui rend les tests automatisés d'autant plus importants pour détecter les erreurs (voir chapitre~5).
 
 \subsection{Projet global}
 
-Si votre projet s'insère dans un projet plus important, ce qui est en général le cas, décrivez le projet global de l'entreprise ou du service ici.
+Le sujet --- l'extraction et la vérification de documents d'identité --- correspond à un vrai besoin rencontré dans de nombreuses organisations (universités, administrations, banques, recruteurs) : confirmer rapidement qu'un document fourni par un usager correspond bien à ce qui est attendu, sans ressaisir l'information à la main. Le projet ne vise pas à remplacer un système de vérification d'identité officiel (ce qui demanderait des garanties de sécurité bien plus poussées), mais à illustrer, à l'échelle d'un projet de Master, les briques techniques nécessaires pour construire un tel système : reconnaissance optique de caractères, traitement d'image, et comparaison de données.
 
 \section{Conclusion}
+
+Ce projet est donc un projet académique, réalisé seul, en suivant une démarche structurée : besoins, spécifications, réalisation, tests, puis bilan. Le chapitre suivant détaille précisément le problème à résoudre et les données utilisées.

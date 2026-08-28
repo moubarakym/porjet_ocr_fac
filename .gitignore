@@ -21,3 +21,9 @@ Projets_et___Conception_Tests_Validation*.pdf
 # OS
 .DS_Store
 Thumbs.db
+
+# Images de test potentiellement issues du web / sensibles (a verifier avant
+# de les rendre publiques -- documents d'identite) : exclues par precaution.
+data/Capture d'écran*.png
+data/passport-1-jpeg.webp
+data/phpCDwGn0.jpg

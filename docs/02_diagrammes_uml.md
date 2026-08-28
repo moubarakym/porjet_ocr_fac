@@ -40,7 +40,7 @@
 | Cas d'utilisation | Acteur | Description |
 |---|---|---|
 | Uploader un document | Utilisateur | Charger une image (PNG, JPG) d'un document d'identite |
-| Selectionner le type de document | Utilisateur | Choisir entre CNI, Passeport, Certificat de scolarite |
+| Selectionner le type de document | Utilisateur | Choisir entre CNI, Passeport, Certificat de scolarite, Titre de sejour |
 | Visualiser les donnees extraites | Utilisateur | Voir les champs detectes par l'OCR et le texte brut |
 | Consulter les resultats de comparaison | Utilisateur | Voir le score de coherence et les incoherences |
 | Charger un fichier de reference | Utilisateur | Optionnel : remplacer le fichier Excel par defaut |
@@ -59,7 +59,8 @@
 │ + preprocess_from_array()│    │ + extract_document()     │
 └─────────────────────────┘     │ + parse_cni()            │
                                 │ + parse_passeport()      │
-                                │ + parse_certificat()     │
+                                │ + parse_certificat_scolarite()     │
+                                │ + parse_titre_sejour()   │
                                 └──────────┬───────────────┘
                                            │
                                            │ donnees extraites

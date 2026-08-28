@@ -3,6 +3,9 @@ Module de comparaison entre les donnees extraites par OCR
 et les donnees de reference (fichier Excel).
 """
 
+import re
+import unicodedata
+
 import pandas as pd
 from rapidfuzz import fuzz
 
@@ -19,10 +22,24 @@ def load_reference_data(excel_path):
 
 
 def normalize(value):
-    """Normalise une valeur pour la comparaison (minuscules, sans espaces superflus)."""
+    """
+    Normalise une valeur pour la comparaison :
+    - minuscules, espaces superflus supprimes
+    - accents retires (l'OCR confond souvent les caracteres accentues, et la
+      reference peut etre saisie avec ou sans accents : "Hélène" et "Helene"
+      ne doivent pas etre consideres comme "differents")
+    - separateurs de date uniformises ('.', '-' -> '/') : un "15.03.1990" lu
+      par l'OCR doit pouvoir etre compare a un "15/03/1990" de reference sans
+      perdre de points de similarite a cause du seul separateur
+    """
     if value is None:
         return ""
-    return str(value).strip().lower()
+    text = str(value).strip().lower()
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = re.sub(r"[.\-]", "/", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 def compare_fields(extracted, reference, fields):
@@ -72,29 +89,59 @@ def compare_fields(extracted, reference, fields):
     return results
 
 
-def find_matching_record(extracted, df, key_field="nom"):
+def find_matching_record(extracted, df, key_fields=("nom", "prenom"), threshold=60):
     """
-    Cherche dans le DataFrame la ligne qui correspond le mieux
-    aux donnees extraites, en se basant sur un champ cle.
+    Cherche dans le DataFrame la ligne qui correspond le mieux aux donnees
+    extraites, en combinant plusieurs champs (nom + prenom par defaut) plutot
+    qu'un seul champ cle.
+
+    Se baser sur un seul champ ("nom" seul, dans l'ancienne version) est
+    fragile : si l'OCR se trompe sur le nom mais lit correctement le prenom
+    (ou inversement), ou si deux personnes de la base partagent un nom de
+    famille frequent, le mauvais enregistrement (ou aucun) est retrouve. En
+    combinant plusieurs champs avec un poids plus fort sur le nom, le
+    matching reste robuste a une erreur OCR isolee sur un seul champ.
+
+    Args:
+        extracted: dict des donnees extraites
+        df: DataFrame de reference
+        key_fields: champs utilises pour le matching, par poids decroissant
+        threshold: score combine minimum (0-100) pour valider un match
 
     Returns:
         (index, Series) du meilleur match, ou (None, None) si rien trouve.
     """
-    val_ocr = normalize(extracted.get(key_field))
-    if not val_ocr:
+    available_fields = [f for f in key_fields if normalize(extracted.get(f))]
+    if not available_fields:
         return None, None
 
-    best_score = 0
+    # Le premier champ (nom, par defaut) compte double : c'est le critere
+    # d'identification principal, mais il ne doit plus etre le seul.
+    weights = [2.0] + [1.0] * (len(available_fields) - 1)
+
+    best_score = -1.0
     best_idx = None
 
     for idx, row in df.iterrows():
-        val_ref = normalize(row.get(key_field, ""))
-        score = fuzz.ratio(val_ocr, val_ref)
+        total_weight = 0.0
+        weighted_score = 0.0
+        for field, weight in zip(available_fields, weights):
+            val_ref = normalize(row.get(field, ""))
+            if not val_ref:
+                continue
+            val_ocr = normalize(extracted.get(field))
+            weighted_score += weight * fuzz.ratio(val_ocr, val_ref)
+            total_weight += weight
+
+        if total_weight == 0:
+            continue
+
+        score = weighted_score / total_weight
         if score > best_score:
             best_score = score
             best_idx = idx
 
-    if best_score >= 60:
+    if best_idx is not None and best_score >= threshold:
         return best_idx, df.loc[best_idx]
 
     return None, None
@@ -116,16 +163,18 @@ def compare_document(extracted, excel_path):
     doc_type = extracted.get("type_document", "")
 
     if doc_type == "CNI":
-        fields = ["nom", "prenom", "date_naissance", "numero", "sexe"]
+        fields = ["nom", "prenom", "date_naissance", "numero", "sexe", "nationalite"]
     elif doc_type == "Passeport":
         fields = ["nom", "prenom", "date_naissance", "numero", "nationalite"]
     elif doc_type == "Certificat de scolarite":
         fields = ["nom", "prenom", "annee_universitaire"]
+    elif doc_type == "Titre de sejour":
+        fields = ["nom", "prenom", "date_naissance", "numero", "sexe", "nationalite"]
     else:
         fields = ["nom", "prenom"]
 
-    # Chercher la personne correspondante
-    idx, record = find_matching_record(extracted, df, key_field="nom")
+    # Chercher la personne correspondante (nom + prenom si disponibles)
+    idx, record = find_matching_record(extracted, df, key_fields=("nom", "prenom"))
 
     if record is None:
         return {
