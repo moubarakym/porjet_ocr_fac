@@ -3,6 +3,7 @@ Module de comparaison entre les donnees extraites par OCR
 et les donnees de reference (fichier Excel).
 """
 
+import datetime
 import re
 import unicodedata
 
@@ -21,10 +22,69 @@ def load_reference_data(excel_path):
     return df
 
 
+def _try_parse_date(value):
+    """
+    Tente d'interpreter value comme une date, quel que soit son format
+    d'origine, et renvoie un objet datetime.date (ou None si value ne
+    ressemble a aucun format de date connu).
+
+    Necessaire car reference.xlsx est charge par pandas : une date de
+    naissance y devient un Timestamp, dont le str() donne un format ISO
+    avec heure ("1995-04-01 00:00:00"), alors que l'OCR produit un format
+    francais jour/mois/annee ("01/04/1995") - la MEME date. Sans ce
+    parsing, l'ancienne normalisation (simple mise en minuscules +
+    uniformisation des separateurs) les laissait aussi differentes l'une
+    de l'autre qu'un champ reellement errone, et rapidfuzz ne leur donnait
+    qu'un score d'environ 40% ("different") au lieu de 100% - releve
+    empiriquement sur un test CNI reel (phpCDwGn0.jpg) ou toutes les autres
+    valeurs (nom, prenom, numero, nationalite) correspondaient pourtant.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    if hasattr(value, "to_pydatetime"):
+        # pandas.Timestamp
+        try:
+            return value.to_pydatetime().date()
+        except Exception:
+            return None
+
+    text = str(value).strip()
+
+    # Format ISO produit par str() sur un Timestamp pandas : "1995-04-01"
+    # ou "1995-04-01 00:00:00"
+    match = re.match(r"^(\d{4})-(\d{2})-(\d{2})", text)
+    if match:
+        try:
+            return datetime.date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except ValueError:
+            return None
+
+    # Format francais jour/mois/annee, avec separateur '/', '.' ou '-'
+    match = re.match(r"^(\d{2})[./\-](\d{2})[./\-](\d{4})$", text)
+    if match:
+        jour, mois, annee = int(match.group(1)), int(match.group(2)), int(match.group(3))
+        try:
+            return datetime.date(annee, mois, jour)
+        except ValueError:
+            return None
+
+    return None
+
+
 def normalize(value):
     """
     Normalise une valeur pour la comparaison :
-    - minuscules, espaces superflus supprimes
+    - une date (quel que soit son format d'origine - voir _try_parse_date)
+      est ramenee a une forme canonique ISO ("aaaa-mm-jj") avant toute
+      autre chose, pour que deux dates identiques ecrites differemment
+      (Timestamp pandas de la reference vs "jj/mm/aaaa" de l'OCR) obtiennent
+      un score de 100% plutot que d'etre comparees comme deux chaines
+      quelconques
+    - sinon, minuscules, espaces superflus supprimes
     - accents retires (l'OCR confond souvent les caracteres accentues, et la
       reference peut etre saisie avec ou sans accents : "Hélène" et "Helene"
       ne doivent pas etre consideres comme "differents")
@@ -34,6 +94,9 @@ def normalize(value):
     """
     if value is None:
         return ""
+    parsed_date = _try_parse_date(value)
+    if parsed_date is not None:
+        return parsed_date.isoformat()
     text = str(value).strip().lower()
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))

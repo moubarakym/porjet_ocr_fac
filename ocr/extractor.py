@@ -529,22 +529,56 @@ def parse_cni(text):
         if l.strip() and not l.strip().startswith("---")
     ]
 
-    nom_label_idx = _find_label_line(lines_raw, r"(?i:[Nn]om[s]?\s*[/|\\]\s*[Ss]u[rm]name[s]?)")
-    if nom_label_idx is not None:
-        for i in range(nom_label_idx + 1, min(nom_label_idx + 4, len(lines_raw))):
-            token = _best_name_token(lines_raw[i], allow_lower=False, min_letters=3)
-            if token:
-                data["nom"] = token
-                break
+    # NOTE (Moussa, aout 2026) : sur phpCDwGn0.jpg (CNI de test "CHEVALLIER
+    # Giséle Audrey"), le libelle "Nom / Surname" etait trop degrade par
+    # l'OCR pour etre reconnu tel quel ("Ss CHEVALLIER", sans aucun texte de
+    # libelle lisible), ET le mot court "Surname" seul matchait a tort par
+    # fuzzy matching (Etape 4 plus bas) la ligne "Prenoms/ Given names"
+    # (score de similarite plus eleve que la vraie ligne du nom) : le champ
+    # "nom" se retrouvait alors avec la valeur du prenom. Corrige en (1)
+    # rendant la detection du libelle prenom tolerante a une lettre
+    # manquante/deformee (ex. "Prénoms" lu "Piénoms" : le "r" disparait) et
+    # (2) en deduisant le nom de la ligne juste AVANT ce libelle prenom
+    # (mise en page CNI habituelle : NOM en majuscules, puis "Prenoms/Given
+    # names", puis le prenom) plutot que de dependre d'un libelle "Nom"
+    # propre qui peut ne jamais apparaitre lisiblement. On parcourt aussi
+    # TOUTES les occurrences du libelle (une par lecture OCR combinee) et on
+    # garde le candidat le plus long/complet, une lecture differente
+    # pouvant reussir la ou une autre echoue.
+    def _longest(a, b):
+        if not a:
+            return b
+        if not b:
+            return a
+        return a if sum(c.isalpha() for c in a) >= sum(c.isalpha() for c in b) else b
 
-    prenom_label_idx = _find_label_line(
-        lines_raw, r"(?i:[Pp]r[ée]?nom[s]?\s*[/|\\]\s*[Gg]iven\s*name[s]?)"
-    )
-    if prenom_label_idx is not None:
-        for i in range(prenom_label_idx + 1, min(prenom_label_idx + 4, len(lines_raw))):
+    prenom_label_pattern = r"(?i:[Pp].{0,2}?nom[s]?\s*[/|\\]\s*[Gg]iven\s*name[s]?)"
+    prenom_label_idxs = [
+        i for i, l in enumerate(lines_raw) if re.search(prenom_label_pattern, l)
+    ]
+    for idx in prenom_label_idxs:
+        for i in range(idx + 1, min(idx + 4, len(lines_raw))):
             token = _best_name_token(lines_raw[i], allow_lower=True, min_letters=2)
             if token:
-                data["prenom"] = token
+                data["prenom"] = _longest(data["prenom"], token)
+                break
+        for i in range(idx - 1, max(idx - 3, -1), -1):
+            if _looks_like_label(lines_raw[i]):
+                continue
+            token = _best_name_token(lines_raw[i], allow_lower=False, min_letters=3)
+            if token:
+                data["nom"] = _longest(data["nom"], token)
+                break
+
+    nom_label_idxs = [
+        i for i, l in enumerate(lines_raw)
+        if re.search(r"(?i:[Nn]om[s]?\s*[/|\\]\s*[Ss]u[rm]name[s]?)", l)
+    ]
+    for idx in nom_label_idxs:
+        for i in range(idx + 1, min(idx + 4, len(lines_raw))):
+            token = _best_name_token(lines_raw[i], allow_lower=False, min_letters=3)
+            if token:
+                data["nom"] = _longest(data["nom"], token)
                 break
 
     # --- Etape 1 : Labels bilingues (nouvelle CNI francaise) ---
@@ -674,6 +708,17 @@ def parse_cni(text):
         match = re.search(r"(\d{2}[/.\-]\d{2}[/.\-]\d{4})", text)
         if match:
             data["date_naissance"] = match.group(1)
+
+    # Repli supplementaire : OCR ayant "colle" les groupes jour et mois sans
+    # espace mais garde l'espace avant l'annee (ex. "0104 1995" pour
+    # "01 04 1995") - releve empiriquement sur phpCDwGn0.jpg. On ne
+    # l'accepte que si aucune autre regle n'a matche, et seulement pour un
+    # mois plausible (01-12) afin d'eviter de confondre ce format avec un
+    # numero de document voisin.
+    if not data["date_naissance"]:
+        match = re.search(r"\b([0-3]\d)([01]\d)\s(\d{4})\b", text)
+        if match and 1 <= int(match.group(2)) <= 12:
+            data["date_naissance"] = f"{match.group(1)}/{match.group(2)}/{match.group(3)}"
 
     # Numero : N° XXXX ou No XXXX
     # Note : la variante "Carte\s*N" a ete retiree, elle matchait a tort le
