@@ -1,6 +1,6 @@
 # Script de soutenance — Vérification automatique de documents d'identité par OCR
 
-Durée cible : 11 minutes maximum (16 diapositives). Temps estimé total ci-dessous : **~9 minutes** à un rythme normal, ce qui laisse une marge de sécurité. Les minutages entre parenthèses sont indicatifs — n'hésitez pas à ralentir sur les diapositives 9, 11 et 13 (les plus denses) et à accélérer sur les diapositives de transition (8 et 12).
+Durée cible : 11 minutes maximum (16 diapositives + une démonstration filmée). Temps estimé total ci-dessous : **~9 min 40** à un rythme normal, ce qui laisse encore une bonne marge de sécurité. Les minutages entre parenthèses sont indicatifs — n'hésitez pas à ralentir sur les diapositives 9, 11 et 13 (les plus denses) et à accélérer sur les diapositives de transition (8 et 12).
 
 ---
 
@@ -60,6 +60,17 @@ Ces cinq défauts sont : l'ordre du texte qui ne correspondait pas à la mise en
 
 Pour garantir qu'aucune de ces corrections n'introduit de régression ailleurs, j'ai écrit une suite de 41 tests automatisés avec pytest, qui passent tous à 100 %. Ils couvrent l'extraction, la comparaison, l'OCR, le prétraitement, et l'intégration du pipeline complet. C'est ce filet de sécurité qui m'a permis de corriger le deuxième bug de rotation avec confiance, sans craindre de casser autre chose.
 
+### Démonstration (≈35 s, entre la diapositive 14 et la 15)
+
+À ce stade, tout ce qui vient d'être décrit (les corrections, les 41 tests) reste abstrait. Une courte démonstration filmée de l'application le rend concret avant de conclure.
+
+*Ce que dit la voix off, pendant que le screencast tourne :* « Concrètement, voici l'application. J'uploade une carte nationale d'identité, je sélectionne le bon type de document, et le système extrait automatiquement les champs — nom, prénom, numéro — puis les compare à la base de référence. » *(laisser le montage couper le temps de traitement réel, qui prend une quinzaine de secondes)* « Le score de cohérence s'affiche, avec le détail champ par champ. »
+
+**Notes pratiques (ne pas dire à l'oral) :**
+- Filmer en amont, pas en direct pendant l'enregistrement de la voix : le traitement OCR prend 15 à 30 secondes par image (plusieurs variantes de prétraitement x plusieurs configurations Tesseract), donc couper ce temps mort au montage plutôt que de le laisser tel quel.
+- Choisir un document qui fonctionne bien pour rester fluide : la CNI ou le certificat de scolarité, pas le titre de séjour (son extraction a un trou connu — champs date de naissance, numéro et nationalité non détectés sur les photos réelles testées — inutile de le montrer ici, il est déjà mentionné comme limite au chapitre 5 du mémoire et n'a pas sa place dans une démo qui doit rassurer).
+- Lancer l'appli avec `streamlit run app.py`, avoir l'image de test prête à uploader avant de démarrer l'enregistrement d'écran.
+
 ### Diapositive 15 — Conclusion et perspectives (≈40 s)
 
 Pour conclure : j'ai livré un système qui extrait et compare automatiquement quatre types de documents, un pipeline testé par 41 tests automatisés, un gain de 22 points de précision grâce à une démarche de mesure objective, et huit défauts identifiés, corrigés et documentés. Pour la suite, plusieurs perspectives : étendre le banc d'essai chiffré au titre de séjour, ajouter une correction de perspective pour les photos prises de travers, remplacer le fichier Excel par une vraie base de données, et ajouter du chiffrement pour un usage en conditions réelles.
@@ -72,4 +83,6 @@ Merci de votre attention. Je suis à votre disposition pour vos questions.
 
 **Conseils pour le jour J**
 
-Chronométrez-vous au moins une fois à voix haute avant la soutenance — le rythme réel dépend beaucoup du stress et des pauses. Si vous devez couper pour gagner du temps, les diapositives 10 et 13 sont les plus faciles à raccourcir (elles reprennent des graphiques déjà lisibles à l'écran, vous pouvez résumer sans tout redire). Gardez les diapositives 9, 11 et 15 quasi intégrales : ce sont celles qui montrent le mieux la démarche et les résultats.
+Chronométrez-vous au moins une fois à voix haute avant la soutenance — le rythme réel dépend beaucoup du stress et des pauses. Si vous devez couper pour gagner du temps, les diapositives 10 et 13 sont les plus faciles à raccourcir (elles reprennent des graphiques déjà lisibles à l'écran, vous pouvez résumer sans tout redire), et la démonstration peut descendre à 20-25 s si besoin. Gardez les diapositives 9, 11 et 15 quasi intégrales : ce sont celles qui montrent le mieux la démarche et les résultats.
+
+Pour la démo : enregistrez-la à part (screencast de l'appli en train de traiter un document), avant d'enregistrer la voix off finale. Vous pourrez alors accélérer ou couper le temps de traitement au montage, caler votre commentaire dessus, et recommencer autant de fois que nécessaire sans avoir à refaire toute la présentation — c'est justement l'avantage de ne pas être en direct devant un jury.
