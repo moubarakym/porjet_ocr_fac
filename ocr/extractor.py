@@ -262,6 +262,17 @@ def _extract_typed_value(text, field):
             return candidate_clean
         if re.fullmatch(r"[A-ZÀ-Üa-zà-ü\-]{3,25}", candidate_clean):
             return candidate_clean
+        # Ligne reduite au code pays mais precedee d'un debris OCR (relevee
+        # sous les deux formes "> FRA" et "z FRA" sur la meme image, la
+        # colonne "Sexe" voisine ayant ete illisible et laisse une scorie) :
+        # les deux tests stricts ci-dessus rejettent toute la ligne et le
+        # champ ressort "Non detecte" alors que le code pays est bien la. On
+        # accepte donc aussi un code pays isole A L'INTERIEUR de la ligne.
+        # Reste sur : on n'arrive ici qu'apres avoir identifie le libelle
+        # "Nationalite / Nationality" a proximite immediate.
+        token = re.search(r"\b([A-Z]{3})\b", text)
+        if token and not _looks_like_label(token.group(1)):
+            return token.group(1)
         return None
     else:
         # Pour les champs texte, ignorer les valeurs parasites (ponctuation seule)
@@ -269,6 +280,20 @@ def _extract_typed_value(text, field):
         if len(cleaned) >= 2:
             return cleaned
     return None
+
+
+def _is_entete_document(text):
+    """
+    Retourne True si le texte est un morceau d'en-tete du document (nom de
+    l'Etat emetteur, intitule de la carte) plutot qu'une donnee personnelle.
+    Ces mots ne sont volontairement PAS dans _looks_like_label, qui sert
+    aussi a filtrer les valeurs : "Française" peut etre une nationalite
+    legitime, alors qu'elle ne peut jamais etre un nom de famille.
+    """
+    mots_entete = ("republique", "francaise", "française", "identite",
+                   "identité", "identity", "card", "carte", "nationale")
+    text_low = text.lower()
+    return any(mot in text_low for mot in mots_entete)
 
 
 def _looks_like_label(text):
@@ -552,7 +577,14 @@ def parse_cni(text):
             return a
         return a if sum(c.isalpha() for c in a) >= sum(c.isalpha() for c in b) else b
 
-    prenom_label_pattern = r"(?i:[Pp].{0,2}?nom[s]?\s*[/|\\]\s*[Gg]iven\s*name[s]?)"
+    # Le libelle prenom est bilingue ("Prénoms / Given names"), mais c'est la
+    # partie FRANCAISE que l'OCR abime le plus (relevees sur la meme image
+    # selon la lecture : "_Piénoms/", "Rénoms/", "Sq noms /", "Su noms /" -
+    # le "P" lui-meme disparait). La partie anglaise, elle, reste lisible a
+    # une lettre pres ("Given names", "Given nanes" : m lu n). On s'ancre
+    # donc uniquement sur elle : c'est une formule qui n'apparait nulle part
+    # ailleurs sur une CNI, donc sans risque de faux positif.
+    prenom_label_pattern = r"(?i:[Gg]iven\s*na[mn]e[s]?)"
     prenom_label_idxs = [
         i for i, l in enumerate(lines_raw) if re.search(prenom_label_pattern, l)
     ]
@@ -566,7 +598,11 @@ def parse_cni(text):
             if _looks_like_label(lines_raw[i]):
                 continue
             token = _best_name_token(lines_raw[i], allow_lower=False, min_letters=3)
-            if token:
+            # "RÉPUBLIQUE FRANÇAISE" est imprime juste au-dessus du nom et
+            # n'est filtre par aucun mot-cle de _looks_like_label : sans ce
+            # garde-fou, une lecture ou la ligne du nom est illisible ferait
+            # remonter "FRANCAISE" comme nom de famille.
+            if token and not _is_entete_document(token):
                 data["nom"] = _longest(data["nom"], token)
                 break
 
@@ -709,16 +745,35 @@ def parse_cni(text):
         if match:
             data["date_naissance"] = match.group(1)
 
-    # Repli supplementaire : OCR ayant "colle" les groupes jour et mois sans
-    # espace mais garde l'espace avant l'annee (ex. "0104 1995" pour
-    # "01 04 1995") - releve empiriquement sur phpCDwGn0.jpg. On ne
-    # l'accepte que si aucune autre regle n'a matche, et seulement pour un
-    # mois plausible (01-12) afin d'eviter de confondre ce format avec un
-    # numero de document voisin.
+    # Repli supplementaire : la CNI 2021 imprime la date de naissance sans
+    # ponctuation ("01 04 1995"), sur une ligne separee de son libelle (les
+    # valeurs sexe/nationalite/date sont regroupees sous un en-tete a trois
+    # colonnes). Les regles ci-dessus, qui exigent la date immediatement
+    # apres le mot "naissance"/"birth", echouent donc systematiquement sur ce
+    # format. Trois difficultes supplementaires relevees empiriquement sur
+    # une meme image selon la lecture OCR :
+    #   - les espaces entre jour et mois disparaissent ("0104 1995") ;
+    #   - le zero initial est lu comme la lettre O ("O1 04 1995") ;
+    #   - le libelle voisin est trop abime pour servir de point d'ancrage.
+    # On cherche donc directement la forme jour/mois/annee n'importe ou dans
+    # le texte, en tolerant les confusions O/0 et l|I/1, puis on valide que
+    # le resultat est une date plausible. Le garde-fou "au moins 6 vrais
+    # chiffres dans le motif" evite qu'une suite de lettres (ex. "ll DE")
+    # soit prise pour un jour et un mois.
     if not data["date_naissance"]:
-        match = re.search(r"\b([0-3]\d)([01]\d)\s(\d{4})\b", text)
-        if match and 1 <= int(match.group(2)) <= 12:
-            data["date_naissance"] = f"{match.group(1)}/{match.group(2)}/{match.group(3)}"
+        confusions = str.maketrans({"O": "0", "o": "0", "l": "1", "I": "1", "|": "1"})
+        motif = (r"\b([0-3OolI][\dOolI])[.\s/\-]{0,2}([01OolI][\dOolI])"
+                 r"[.\s/\-]{1,2}((?:19|20)\d{2})\b")
+        for match in re.finditer(motif, text):
+            if sum(c.isdigit() for c in match.group(0)) < 6:
+                continue
+            jour = match.group(1).translate(confusions)
+            mois = match.group(2).translate(confusions)
+            if not (jour.isdigit() and mois.isdigit()):
+                continue
+            if 1 <= int(jour) <= 31 and 1 <= int(mois) <= 12:
+                data["date_naissance"] = f"{jour}/{mois}/{match.group(3)}"
+                break
 
     # Numero : N° XXXX ou No XXXX
     # Note : la variante "Carte\s*N" a ete retiree, elle matchait a tort le
